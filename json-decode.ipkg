@@ -1,0 +1,9 @@
+package json-decode
+
+modules = Language.JSON.Decode, Tests
+
+sourcedir = src
+
+pkgs = contrib
+
+tests = Tests.tests
