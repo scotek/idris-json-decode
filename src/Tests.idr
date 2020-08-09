@@ -1,6 +1,7 @@
 module Tests
 
 import System
+import Data.Strings             --isInfixOf
 import Language.JSON.Decode
 
 
@@ -11,7 +12,7 @@ test name f = do
         Right _ => putStrLn "OK"
         Left err => do
             putStrLn $ "Failed: " ++ err
-            exit 1
+            exitFailure
 
 
 testInt : Bool -> String -> Either String Bool
@@ -79,4 +80,4 @@ export
 tests : IO ()
 tests = do
     intTests
-    --customTests
+    customTests

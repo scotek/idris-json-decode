@@ -2,8 +2,8 @@ package json-decode
 
 modules = Language.JSON.Decode, Tests
 
-sourcedir = src
+sourcedir = "src"
 
-pkgs = contrib
+depends = contrib
 
-tests = Tests.tests
+
