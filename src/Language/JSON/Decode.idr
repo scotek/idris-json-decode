@@ -5,32 +5,94 @@ import Data.List
 import Language.JSON
 import Language.JSON.Data
 
+||| JavaScript types as values for specifing schemas and types without attaching a value.
+public export
+data JType
+   = JTNull
+   | JTBoolean
+   | JTNumber
+   | JTString
+   | JTArray
+   | JTObject
+
+public export
+Eq JType where
+ (==) JTNull JTNull = True
+ (==) JTBoolean JTBoolean = True
+ (==) JTNumber JTNumber = True
+ (==) JTString JTString = True
+ (==) JTArray JTArray = True
+ (==) JTObject JTObject = True
+ (==) _ _ = False
+
+public export
+Show JType where
+  show JTNull = "JTNull"
+  show JTBoolean = "JBoolean"
+  show JTNumber = "JTNumber"
+  show JTString = "JTString"
+  show JTArray = "JTArray"
+  show JTObject = "JTObject"
+
+public export
+valToType : JSON -> JType
+valToType JNull = JTNull
+valToType (JBoolean _) = JTBoolean
+valToType (JNumber _) = JTNumber
+valToType (JString _) = JTString
+valToType (JArray _) = JTArray
+valToType (JObject _) = JTObject
+
+||| Represent the various errors that may happen when trying to decode JSON.
+public export
+data JSONError = JSONParseErr   -- Error from Language.JSON.parse
+               | JSONGenericErr String -- for incremental refactoring from old errors
+               | JSONTypeErr (expected : JType) (actual: JType)
+               | JSONDeliberateFail JSONError       -- to cover `fail`
+               | JSONNoSuchField (expected : String) (actualObj: String)
+
+public export
+Show JSONError where
+  show JSONParseErr = "JSONParseErr"
+  show (JSONGenericErr x) = x
+  show (JSONTypeErr x y) = "JSONTypeErr expected " ++ (show x) ++ " actual " ++ (show y)
+  show (JSONDeliberateFail x) = "JSONDeliberateFail " ++ (show x)
+  show (JSONNoSuchField e a) = "JSONNoSuchField expected " ++ e ++ " in " ++ a
+
+public export
+Eq JSONError where
+  (==) JSONParseErr JSONParseErr = True
+  (==) (JSONGenericErr a) (JSONGenericErr b) = a == b
+  (==) (JSONTypeErr a b) (JSONTypeErr c d) = a == c && b == d
+  (==) (JSONDeliberateFail a) (JSONDeliberateFail b) = a == b
+  (==) (JSONNoSuchField e1 a1) (JSONNoSuchField e2 a2) = e1 == e2 && a1 == a2
+  (==) _ _ = False
+
 ||| Describes how to turn a `JSON` into a `v`.
 ||| Use with `decodeJSON` or `decodeString`.
 public export
 Decoder : Type -> Type
-Decoder = \v => JSON -> Either String v
+Decoder = \v => JSON -> Either JSONError v
 
 
 private
 error : String -> Decoder a
 error expected actual =
-    Left $ "Expected " ++ expected ++ ", got: " ++ format 0 actual
-
+    Left $ JSONGenericErr $ "Expected " ++ expected ++ ", got: " ++ format 0 actual
 
 ||| Run a `Decoder` on some `JSON`.
 public export
-decodeJSON : Decoder a -> JSON -> Either String a
+decodeJSON : Decoder a -> JSON -> Either JSONError a
 decodeJSON decoder json =
     decoder json
 
 ||| Parse a `String` to `JSON` and run a `Decoder` on it
 public export
-decodeString : Decoder a -> String -> Either String a
+decodeString : Decoder a -> String -> Either JSONError a
 decodeString decoder str =
     case parse str of
         Just json => decoder json
-        Nothing => Left "parse error"
+        Nothing => Left JSONParseErr
 
 
 ||| Given a function, transform a decoder's result
@@ -50,11 +112,11 @@ succeed x _ =
     Right x
 
 
-||| Always fail with the given error string.
+||| Always fail with the given error.
 public export
-fail : String -> Decoder a
+fail : JSONError -> Decoder a
 fail err _ =
-    Left err
+    Left $ JSONDeliberateFail err
 
 
 ||| Apply a function to the result of a decoder to get another decoder, then run that
@@ -104,23 +166,31 @@ lazy thunk =
 
 ||| Decode the given value when encountering JNull
 public export
-null : a -> Decoder a
-null x JNull = Right x
-null _ json = error "null" json
+null' : a -> Decoder a
+null' x JNull = Right x
+null' _ json = Left $ JSONTypeErr JTNull (valToType json)
 
+||| Decode a known null value, returning True if it was null, otherwise a type error.
+public export
+null : Decoder Bool
+null (JNull) = Right True
+null json = Left $ JSONTypeErr JTNull (valToType json)
 
 ||| Decode a JString
 public export
 string : Decoder String
 string (JString str) = Right str
-string json = error "string" json
+string json = Left $ JSONTypeErr JTString (valToType json)
 
 
 ||| Decode JBoolean
 ||| Renamed from "bool" because causing "INTERNAL ERROR: $bool is not a function application"
+public export
 bol : Decoder Bool
 bol (JBoolean bool) = Right bool
-bol json = error "bol" json
+bol json = Left $ JSONTypeErr JTBoolean (valToType json)
+
+
 
 
 ||| Decode a `JNumber` by casting it to `Int`
@@ -130,20 +200,20 @@ int (JNumber x) =
     if floor x == x
     then Right (cast x)
     else error {a = Int } "int" (JNumber x)
-int json = error "int" json
+int json = Left $ JSONTypeErr JTNumber (valToType json)
 
 
 ||| Decode a `JNumber` as `Double`
 public export
 float : Decoder Double
 float (JNumber x) = Right x
-float json = error "string" json
+float json = Left $ JSONTypeErr JTNumber (valToType json)
 
 
 ||| Given a list of decoders, use the first one that succeeds
 public export
 oneOf : List (Decoder a) -> Decoder a
-oneOf [] json = error "oneOf" json
+oneOf [] json = error "oneOf" json -- TODO improve
 oneOf (d :: ds) json =
     case d json of
         Right v => Right v
@@ -180,8 +250,8 @@ field : String -> Decoder a -> Decoder a
 field key decoder json@(JObject fields) =
     case filter ((== key) . fst) fields of
         ( _, v ) :: _ => decoder v
-        _ => error ("object with field \"" ++ key ++ "\"") json
-field key _ json = error ("object with field \"" ++ key ++ "\"") json
+        _ => Left $ JSONNoSuchField key (format 0 json)
+field key _ json = Left $ JSONTypeErr JTObject (valToType json)
 
 
 ||| Decode a nested `JObject` field
@@ -207,7 +277,7 @@ index n decoder json@(JArray lst) =
         Just j => decoder j
         Nothing => error ("list of length > " ++ cast n ) json
 index n decoder json =
-    error "list" json
+      Left $ JSONTypeErr JTArray (valToType json)
 
 
 ||| Decode `Just` a value if the given decoder succeeds, `Nothing` otherwise
@@ -222,6 +292,7 @@ public export
 nullable : Decoder a -> Decoder (Maybe a)
 nullable decoder =
   oneOf
-    [ null Nothing
+    [ null' Nothing
     , map Just decoder
     ]
+
