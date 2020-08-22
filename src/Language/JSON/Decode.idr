@@ -45,11 +45,12 @@ valToType (JObject _) = JTObject
 
 ||| Represent the various errors that may happen when trying to decode JSON.
 public export
-data JSONError = JSONParseErr   -- Error from Language.JSON.parse
-               | JSONGenericErr String -- for incremental refactoring from old errors
-               | JSONTypeErr (expected : JType) (actual: JType)
-               | JSONDeliberateFail JSONError       -- to cover `fail`
-               | JSONNoSuchField (expected : String) (actualObj: String)
+data JSONError : Type where
+  JSONParseErr : JSONError      -- Represent errors from Language.JSON.parse
+  JSONGenericErr : String -> JSONError -- for incremental refactoring from old errors
+  JSONTypeErr : (expected : JType) -> (actual : JType) -> JSONError
+  JSONDeliberateFail : JSONError -> JSONError -- to cover `fail`
+  JSONNoSuchField : (expected : String) -> (actualObj : String) -> JSONError
 
 public export
 Show JSONError where
@@ -221,27 +222,30 @@ oneOf (d :: ds) json =
 
 
 ||| Decode a list of elements
--- list : Decoder a -> Decoder (List a)
--- list decoder json@(JArray lst) =
---     map reverse $ foldr f (Right []) $ map decoder $ lst
---     where
---        f : Either String JSON -> Either String (List JSON) -> Either String (List JSON)  -- FIXME attempt at a type but compiler not happy
---        f (Right v) (Right l) = Right (v :: l)
---        f (Left err) _ = Left err
---        f (Right v) (Left err) = Left err
--- list _ json = error "list" json
+||| If it encounters one or more errors, it returns the last error.
+public export
+list : Decoder a -> Decoder (List a)
+list decoder (JArray lst) =
+    Prelude.map reverse $ foldr f (Right []) $ map decoder $ lst
+    where
+       f : Either JSONError a -> Either JSONError (List a) -> Either JSONError (List a)  -- FIXME
+       f (Right v) (Right l) = Right (v :: l)
+       f (Left err) _ = Left err
+       f (Right v) (Left err) = Left err
+list _ json = error "list" json
 
 
 ||| Decode a JObject as key-value pairs
--- keyValuePairs : Decoder a -> Decoder (List (String, a))
--- keyValuePairs decoder (JObject o) =
---     map reverse $ foldr f (Right []) $ map (\( k, v ) => ( k, decoder v)) $ o
---     where
---         f : ( String, Either String a ) -> Either String (List ( String, a )) -> Either String (List ( String, a ))
---         f ( k, Right v ) (Right lst) = Right (( k, v ) :: lst)
---         f ( k, Right v) (Left err) = Left err
---         f ( k, Left err ) _ = Left err
--- keyValuePairs _ json = error "keyValuePairs" json
+public export
+keyValuePairs : Decoder a -> Decoder (List (String, a))
+keyValuePairs decoder (JObject o) =
+    Prelude.map reverse $ foldr f (Right []) $ map (\( k, v ) => ( k, decoder v)) $ o
+    where
+        f : ( String, Either JSONError a ) -> Either JSONError (List ( String, a )) -> Either JSONError (List ( String, a ))
+        f ( k, Right v ) (Right lst) = Right (( k, v ) :: lst)
+        f ( k, Right v) (Left err) = Left err
+        f ( k, Left err ) _ = Left err
+keyValuePairs _ json = error "keyValuePairs" json
 
 
 ||| Decode the given field in a `JObject`

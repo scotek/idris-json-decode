@@ -107,9 +107,9 @@ fieldTests = do
     => testPass True (field "foo" null (JObject [("foo", JNull)]))
   test "field exists, boolean, value same" $ \()
     => testPass False (field "foo" bol (JObject [("foo", JBoolean False)]))
---  test "field exists, array, value same" $ \()
---    => testPass (JArray [JNumber 4, JNumber 5, JNumber 6])
---                (field "foo" list (JObject [("foo", JArray [JNumber 4, JNumber 5, JNumber 6])]))
+-- test "field exists, array, value same" $ \()
+--   => testPass [4,5,6]
+--               (field "foo" (list int) (JObject [("foo", JArray [JNumber 4, JNumber 5, JNumber 6])]))
 
   -- test invalid field access
   test "field exists, wrong decoder type" $ \()
@@ -136,34 +136,34 @@ fieldTests = do
 -- Other testing
 --------------------------------------------------------------------------------
 
-customTests : IO ()
-customTests =
-    test "customDecoder preserves user error messages" $ \() => assertion
-    where
-        jsonString : String
-        jsonString = "{ \"foo\": \"bar\" }"
+-- customTests : IO ()
+-- customTests =
+--     test "customDecoder preserves user error messages" $ \() => assertion
+--     where
+--         jsonString : String
+--         jsonString = "{ \"foo\": \"bar\" }"
 
-        customErrorMessage : String
-        customErrorMessage = "I want to see this message!"
+--         customErrorMessage : String
+--         customErrorMessage = "I want to see this message!"
 
-        myDecoder : Decoder Int
-        myDecoder = andThen (\foo => fail customErrorMessage) (field "foo" string)
+--         myDecoder : Decoder Int
+--         myDecoder = andThen (\foo => fail customErrorMessage) (field "foo" string)
 
-        assertion : Either String Bool
-        assertion =
-            case decodeString myDecoder jsonString of
-                Right _ =>
-                    Left $ "expected `customDecoder` to produce Left, but got Right"
+--         assertion : Either String Bool
+--         assertion =
+--             case decodeString myDecoder jsonString of
+--                 Right _ =>
+--                     Left $ "expected `customDecoder` to produce Left, but got Right"
 
-                Left message =>
-                    if isInfixOf customErrorMessage message then
-                        Right True
-                    else
-                        Left $
-                            "expected `customDecoder` to preserve user's error message '"
-                                ++ customErrorMessage
-                                ++ "', but instead got: "
-                                ++ message
+--                 Left message =>
+--                     if isInfixOf customErrorMessage message then
+--                         Right True
+--                     else
+--                         Left $
+--                             "expected `customDecoder` to preserve user's error message '"
+--                                 ++ customErrorMessage
+--                                 ++ "', but instead got: "
+--                                 ++ message
 
 
 export
