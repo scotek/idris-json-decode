@@ -226,7 +226,7 @@ oneOf (d :: ds) json =
 public export
 list : Decoder a -> Decoder (List a)
 list decoder (JArray lst) =
-    Prelude.map reverse $ foldr f (Right []) $ map decoder $ lst
+    foldr f (Right []) $ map decoder $ lst
     where
        f : Either JSONError a -> Either JSONError (List a) -> Either JSONError (List a)  -- FIXME
        f (Right v) (Right l) = Right (v :: l)

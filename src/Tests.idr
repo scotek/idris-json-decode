@@ -107,9 +107,9 @@ fieldTests = do
     => testPass True (field "foo" null (JObject [("foo", JNull)]))
   test "field exists, boolean, value same" $ \()
     => testPass False (field "foo" bol (JObject [("foo", JBoolean False)]))
--- test "field exists, array, value same" $ \()
---   => testPass [4,5,6]
---               (field "foo" (list int) (JObject [("foo", JArray [JNumber 4, JNumber 5, JNumber 6])]))
+  test "field exists, array, value same" $ \()
+    => testPass [4,5,6]
+      (field "foo" (list int) (JObject [("foo", JArray [JNumber 4, JNumber 5, JNumber 6])]))
 
   -- test invalid field access
   test "field exists, wrong decoder type" $ \()
