@@ -239,7 +239,7 @@ list _ json = error "list" json
 public export
 keyValuePairs : Decoder a -> Decoder (List (String, a))
 keyValuePairs decoder (JObject o) =
-    Prelude.map reverse $ foldr f (Right []) $ map (\( k, v ) => ( k, decoder v)) $ o
+    foldr f (Right []) $ map (\( k, v ) => ( k, decoder v)) $ o
     where
         f : ( String, Either JSONError a ) -> Either JSONError (List ( String, a )) -> Either JSONError (List ( String, a ))
         f ( k, Right v ) (Right lst) = Right (( k, v ) :: lst)

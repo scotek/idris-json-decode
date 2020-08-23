@@ -110,6 +110,11 @@ fieldTests = do
   test "field exists, array, value same" $ \()
     => testPass [4,5,6]
       (field "foo" (list int) (JObject [("foo", JArray [JNumber 4, JNumber 5, JNumber 6])]))
+  test "field exists, key/value pairs, value same" $ \()
+    => testPass [("foo", [4,5,6]), ("alpha", [1,2,3]), ("delta", [7,8,9])]
+      (keyValuePairs (list int) (JObject [("foo", JArray [JNumber 4, JNumber 5, JNumber 6]),
+                                          ("alpha", JArray [JNumber 1, JNumber 2, JNumber 3]),
+                                          ("delta", JArray [JNumber 7, JNumber 8, JNumber 9])]))
 
   -- test invalid field access
   test "field exists, wrong decoder type" $ \()
